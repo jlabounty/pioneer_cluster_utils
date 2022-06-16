@@ -1,0 +1,75 @@
+Bootstrap: docker
+From: ubuntu:20.04
+Stage: build
+
+%labels
+    Author jjlab@uw.edu
+    Version v0.0.1
+
+%help 
+    Container with python packages for the analysis of the testbeam data
+
+%setup
+    # clone a new version of the MonteCarlo repository
+    # export PACKAGES_TMP=/tmp/packages_for_singularity
+    # rm -fr $PACKAGES_TMP
+    # mkdir -p $PACKAGES_TMP
+    
+    # More repos can be added here, if necessary
+
+    # git clone https://github.com/PIENUX/MonteCarlo/ $PACKAGES_TMP #TODO: Figure out how to inherit authentication from host system
+    # cp -R ${PACKAGES_TMP} ${SINGULARITY_ROOTFS}
+
+# %files
+#     /file1
+#     /file1 /opt
+
+%environment
+    export PYTHONPATH=$PYTHONPATH:/software/pioneer_cluster_utils
+    # export LC_ALL=C
+
+
+%post
+    apt-get update 
+    # apt-get install -y software-properties-common
+    # add-apt-repository universe 
+    # add-apt-repository multiverse
+
+    DEBIAN_FRONTEND="noninteractive" \
+    apt-get install -y vim dpkg-dev cmake g++ gcc binutils \
+        git openssl cmake g++ gcc wget \
+        # libx11-dev libxpm-dev libxft-dev libxext-dev libssl-dev \
+        # libxmu-dev \
+        # libglu1-mesa-dev mesa-common-dev libffi-dev \
+        # libfftw3-dev \
+        # libhdf5-dev \
+        # libbz2-dev \
+        # liblzma-dev \
+        # freeglut3-dev \
+        # libboost-all-dev  
+
+    mkdir -p /software/conda
+
+    cd /software
+    git clone https://github.com/jlabounty/pioneer_cluster_utils.git
+
+
+    cd /software/conda 
+    # wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+    chmod 777 Miniforge3-Linux-x86_64.sh
+    ./Miniforge3-Linux-x86_64.sh -bfp /software/conda/
+    rm -f Miniforge3-Linux-x86_64.sh
+
+    ls -ltrh /software/conda/
+    ls -ltrh /software/conda/bin
+
+    # source /software/conda/bin/activate base
+    /software/conda/bin/activate base
+
+    /software/conda/bin/conda env create -f /software/pioneer_cluster_utils/environments/pioneer.yml
+
+
+    
+
+%post
