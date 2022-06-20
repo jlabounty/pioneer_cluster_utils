@@ -8,6 +8,8 @@ Stage: build
 
 %help 
     Container with python packages for the analysis of the testbeam data
+    To put something into your python path when running, simply mount it under 
+    /software/
 
 %setup
     # clone a new version of the MonteCarlo repository
@@ -25,7 +27,7 @@ Stage: build
 #     /file1 /opt
 
 %environment
-    export PYTHONPATH=$PYTHONPATH:/software/pioneer_cluster_utils
+    export PYTHONPATH=$PYTHONPATH:/software/
     # export LC_ALL=C
 
 
@@ -38,6 +40,7 @@ Stage: build
     DEBIAN_FRONTEND="noninteractive" \
     apt-get install -y vim dpkg-dev cmake g++ gcc binutils \
         git openssl cmake g++ gcc wget \
+        rsync \
         # libx11-dev libxpm-dev libxft-dev libxext-dev libssl-dev \
         # libxmu-dev \
         # libglu1-mesa-dev mesa-common-dev libffi-dev \
@@ -61,11 +64,11 @@ Stage: build
     ./Miniforge3-Linux-x86_64.sh -bfp /software/conda/
     rm -f Miniforge3-Linux-x86_64.sh
 
-    ls -ltrh /software/conda/
-    ls -ltrh /software/conda/bin
+    # ls -ltrh /software/conda/
+    # ls -ltrh /software/conda/bin
 
     # source /software/conda/bin/activate base
-    /software/conda/bin/activate base
+    # source /software/conda/bin/activate base
 
     /software/conda/bin/conda env create -f /software/pioneer_cluster_utils/environments/pioneer.yml
 
