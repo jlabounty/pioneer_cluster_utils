@@ -47,7 +47,7 @@ class DatasetDistributer():
                 f.write(arc)
         return DatasetDistributer('tmp.txt', **kwargs)
 
-    def __init__(self, infile, port=5555, retry_until_all_complete=True, ntries=2, **kwargs):
+    def __init__(self, infile, port=5555, retry_until_all_complete=True, ntries=2, timeout=None, **kwargs):
         self.files = self.read_filelist(infile)
         self.port = port
         self.processed = {x:[False,False,False,0] for x in self.files} # Sent, Recieved, Confirmed Processed
@@ -56,15 +56,29 @@ class DatasetDistributer():
         self.nconnected = 0
         self.ntries = ntries
         self.consumers = []
+        self.timeout = timeout
 
     def run(self):
         print("Running the dataset distribution....")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind(f"tcp://*:{self.port}")
+        # print(f"{self.socket.gettimeout()=}")
+        # self.socket.settimeout(self.timeout)
         # index = 0
+        fails = 0
         while True:
-            msg = DatasetMessage.load( self.socket.recv() )
+            try:
+                msg = DatasetMessage.load( self.socket.recv() )
+            except zmq.ZMQError as e:
+                fails += 1
+                print(f'Unable to parse data from socket ({fails=})')
+                print(e)
+                time.sleep(1)
+                continue 
+            except e:
+                print("Other error:", e)
+                continue
             print(f'Recieved message:', msg)
             if(msg.request):
                 # requesting the next file
@@ -80,6 +94,7 @@ class DatasetDistributer():
                         )
                         self.processed[file][0] = True
                         self.processed[file][3] += 1
+                        self.processed[file].append(msg.consumer_id)
                         found_file = True 
                         break 
                 if(not found_file):
@@ -118,11 +133,18 @@ class DatasetDistributer():
             print(self.processed)
             print(self.consumers)
 
+            if(len(self.consumers) == 0):
+                print("No consumers are active after recieving messages. Exiting.")
+                break
+
 
 class DatasetConsumer():
-    def __init__(self, server='localhost', port=5555):
+    def __init__(self, server='localhost', port=5555, id=None):
         self.context = zmq.Context()
-        self.id = uuid.uuid4()
+        if(id is None):
+            self.id = uuid.uuid4()
+        else:
+            self.id = id
         print(f"This id: {self.id=}")
 
         #  Socket to talk to server
@@ -150,7 +172,7 @@ class DatasetConsumer():
         # confirm receipt
         self.send_message(message)
         return self.recieve_message()
-        return message.filename
+        # return message.filename
 
     def confirm_processed(self, filename):
         if(type(filename) is str):

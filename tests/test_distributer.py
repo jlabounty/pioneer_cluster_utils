@@ -9,7 +9,17 @@ with open(infile, 'w') as f:
         f.write(file+'\n')
         os.system(f'touch {file}')
 
-ding = DatasetDistributer(infile)
+# ding = DatasetDistributer(infile)
+ding = DatasetDistributer(infile, timeout=1.)
 print(ding, ding.files)
 
 ding.run()
+
+for i,x in enumerate(files):
+    assert os.path.exists(x)
+    assert os.path.exists(x.replace('.txt', f'_processed_{i%3}.txt'))
+
+
+print("Tests passed. Cleaning up.")
+os.system(f'rm -rf {data_dir}')
+os.system(f'rm -rf {infile}')
