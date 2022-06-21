@@ -9,6 +9,7 @@ import subprocess
 import zmq 
 import time
 import pickle
+import uuid 
 
 @dataclass
 class DatasetMessage():
@@ -17,6 +18,7 @@ class DatasetMessage():
     success  : bool = False # This file has been processed successfully
     request  : bool = False # This message is a request for a new file
     complete : bool = False # All files processed, consumer can exit
+    consumer_id: str = None      # The unique ID of this consumer
 
     def encode(self):
         return pickle.dumps(self)
@@ -51,7 +53,9 @@ class DatasetDistributer():
         self.processed = {x:[False,False,False,0] for x in self.files} # Sent, Recieved, Confirmed Processed
         # self.generator = 
         self.retry = retry_until_all_complete
+        self.nconnected = 0
         self.ntries = ntries
+        self.consumers = []
 
     def run(self):
         print("Running the dataset distribution....")
@@ -64,11 +68,15 @@ class DatasetDistributer():
             print(f'Recieved message:', msg)
             if(msg.request):
                 # requesting the next file
+
+                if(msg.consumer_id not in self.consumers):
+                    self.consumers.append(msg.consumer_id)
+
                 found_file = False
                 for file, vals in self.processed.items():
                     if(not vals[0] and not vals[1]):
                         self.socket.send(
-                            DatasetMessage(filename=file).encode()
+                            DatasetMessage(filename=file, consumer_id=msg.consumer_id).encode()
                         )
                         self.processed[file][0] = True
                         self.processed[file][3] += 1
@@ -81,7 +89,7 @@ class DatasetDistributer():
                         for file, vals in self.processed.items():
                             if(not vals[2] and vals[3] < self.ntries):
                                 self.socket.send(
-                                    DatasetMessage(filename=file).encode()
+                                    DatasetMessage(filename=file,consumer_id=msg.consumer_id).encode()
                                 )
                                 # self.processed[file][0] = True
                                 self.processed[file][3] += 1
@@ -91,6 +99,7 @@ class DatasetDistributer():
                     self.socket.send(
                         DatasetMessage(complete=True).encode()
                     )
+                    self.consumers.remove(msg.consumer_id)
                 continue 
             if(msg.complete):
                 print("Message acknoledging completion recieved!")
@@ -107,11 +116,14 @@ class DatasetDistributer():
                 
             self.socket.send(msg.encode()) 
             print(self.processed)
+            print(self.consumers)
 
 
 class DatasetConsumer():
     def __init__(self, server='localhost', port=5555):
         self.context = zmq.Context()
+        self.id = uuid.uuid4()
+        print(f"This id: {self.id=}")
 
         #  Socket to talk to server
         print("Connecting to hello world server…")
@@ -127,7 +139,7 @@ class DatasetConsumer():
     def get_next_file(self):
         print("Requesting next file")
         self.send_message(
-            DatasetMessage(request=True)
+            DatasetMessage(request=True, consumer_id=self.id)
         )
         message = self.recieve_message()
         print("Recieved message:", message)
