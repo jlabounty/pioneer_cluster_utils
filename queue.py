@@ -81,6 +81,7 @@ class FileHandler:
 
     def _set_host_rules(self):
         '''set rules for copying files in place and number of retries automatically based on hostname'''
+        print(f"Setting rules based on {self.host=}")
         if('cenpa-rocks' in self.host):
             self.set_copy_rules(False, -1,-1)
         elif('compute-' in self.host):
@@ -110,6 +111,7 @@ class FileHandler:
     def __iter__(self):
         print(self.queue_dir)
         for file in self.file_list:
+            self.raw_file_path = file 
             if(self.copy_files):
                 if(self.localpath is not None):
                     self.remove_local_copy()
