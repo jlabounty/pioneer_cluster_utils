@@ -12,11 +12,11 @@ import pickle
 
 @dataclass
 class DatasetMessage():
-    filename : str  = ''
-    recieved : bool = False 
-    consumed : bool = False 
-    success  : bool = False
-    request  : bool = False
+    filename : str  = ''    # Name of the file 
+    recieved : bool = False # File was recieved by consumer, but has not yet been processed
+    success  : bool = False # This file has been processed successfully
+    request  : bool = False # This message is a request for a new file
+    complete : bool = False # All files processed, consumer can exit
 
     def encode(self):
         return pickle.dumps(self)
@@ -45,31 +45,56 @@ class DatasetDistributer():
                 f.write(arc)
         return DatasetDistributer('tmp.txt', **kwargs)
 
-    def __init__(self, infile, port=5555, **kwargs):
+    def __init__(self, infile, port=5555, retry_until_all_complete=True, ntries=2, **kwargs):
         self.files = self.read_filelist(infile)
         self.port = port
-        self.processed = {x:[False,False,False] for x in self.files} # Sent, Recieved, Confirmed Processed
+        self.processed = {x:[False,False,False,0] for x in self.files} # Sent, Recieved, Confirmed Processed
         # self.generator = 
+        self.retry = retry_until_all_complete
+        self.ntries = ntries
 
     def run(self):
         print("Running the dataset distribution....")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind(f"tcp://*:{self.port}")
-        index = 0
+        # index = 0
         while True:
             msg = DatasetMessage.load( self.socket.recv() )
             print(f'Recieved message:', msg)
             if(msg.request):
                 # requesting the next file
-                self.socket.send(
-                    DatasetMessage(filename=self.files[index]).encode()
-                )
-                self.processed[self.files[index]][0] = True
-                index += 1
+                found_file = False
+                for file, vals in self.processed.items():
+                    if(not vals[0] and not vals[1]):
+                        self.socket.send(
+                            DatasetMessage(filename=file).encode()
+                        )
+                        self.processed[file][0] = True
+                        self.processed[file][3] += 1
+                        found_file = True 
+                        break 
+                if(not found_file):
+                    # if(self.)
+                    print("All files have been marked as sent!")
+                    if(self.retry):
+                        for file, vals in self.processed.items():
+                            if(not vals[2] and vals[3] < self.ntries):
+                                self.socket.send(
+                                    DatasetMessage(filename=file).encode()
+                                )
+                                # self.processed[file][0] = True
+                                self.processed[file][3] += 1
+                                found_file = True 
+                                break
+                if(not found_file): 
+                    self.socket.send(
+                        DatasetMessage(complete=True).encode()
+                    )
                 continue 
-            
-            if(msg.success):
+            if(msg.complete):
+                print("Message acknoledging completion recieved!")
+            elif(msg.success):
                 file = msg.filename
                 print(f"File {file} was successfully processed!")
                 self.processed[file][2]=True 

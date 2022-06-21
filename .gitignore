@@ -130,3 +130,5 @@ dmypy.json
 
 
 **.sif
+tests/*.txt
+tests/data
