@@ -47,7 +47,7 @@ def copy_file_with_queue(infile, indir='./', sleep=10, max_tries = 100, queue_di
                 raise TimeoutError
             time.sleep(sleep)
 
-class FileHandler:
+class FileHandler():
     def __init__(self, infile, single_file=True, automatic_rules=True, queue_dir = '/queue/', delete_local_copies=True, **kwargs):
         print('Initializing!!!', queue_dir)
         self.infile = infile 

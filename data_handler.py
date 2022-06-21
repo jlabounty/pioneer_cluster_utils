@@ -11,6 +11,8 @@ import time
 import pickle
 import uuid 
 
+from pioneer_cluster_utils.queue import FileHandler
+
 @dataclass
 class DatasetMessage():
     filename : str  = ''    # Name of the file 
@@ -187,4 +189,19 @@ class DatasetConsumer():
         return self.recieve_message()
 
 
+class DatasetConsumerWithQueue(DatasetConsumer):
+    def __init__(self, server='localhost', port=5555, id=None,**kwargs):
+        super().__init__(server, port, id)
+        # self.fh = FileHandler(None, **kwargs)
+        self.kwargs = kwargs
         
+    def __iter__(self):
+        while True:
+            this_file = self.get_next_file()
+            if(this_file.complete):
+                break
+            with FileHandler(this_file.filename, **self.kwargs) as self.fh:
+                for x in self.fh:
+                    yield x 
+
+    
